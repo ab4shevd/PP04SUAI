@@ -1,6 +1,5 @@
 from tqdm import tqdm
 
-
 class ProgressBar:
     def __init__(self, total):
         self.pbar = tqdm(

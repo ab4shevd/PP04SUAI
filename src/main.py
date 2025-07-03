@@ -6,8 +6,7 @@ import matplotlib.pyplot as plt
 from tkinter import Tk, filedialog, messagebox
 from tqdm import tqdm
 
-EARTH_RADIUS = 6378137  # Радиус Земли (WGS-84)
-
+EARTH_RADIUS = 6378137  # Радиус
 
 class MapStitcher:
     def __init__(self):
@@ -30,7 +29,7 @@ class MapStitcher:
             [coords[0], coords[1]],  # top-left
             [coords[2], coords[3]],  # top-right
             [coords[4], coords[5]],  # bottom-right
-            [coords[6], coords[7]]   # bottom-left
+            [coords[6], coords[7]]  # bottom-left
         ], dtype=np.float64)
         return corners, filename
 
@@ -87,6 +86,13 @@ class MapStitcher:
 
         return min_x, max_x, min_y, max_y
 
+    def rotate_image(self, img, angle):
+        """Вращает изображение на заданный угол"""
+        height, width = img.shape[:2]
+        rotation_matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1)
+        rotated_img = cv2.warpAffine(img, rotation_matrix, (width, height))
+        return rotated_img
+
     def stitch(self, input_dir, pixels_per_meter=0.1):
         """Основной процесс склейки фрагментов"""
         self.load_fragments(input_dir)
@@ -130,7 +136,6 @@ class MapStitcher:
         )
         sorted_fragment_info = [fragment_info[i] for i in sorted_indices]
 
-        reference_fragment = None  # Первый фрагмент как эталон для цветокоррекции
         for img_path, dst_pts in tqdm(sorted_fragment_info, desc="Склейка фрагментов"):
             img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
             if img is None:
@@ -143,7 +148,7 @@ class MapStitcher:
 
             h, w = img.shape[:2]
 
-            # Правильный порядок точек для преобразования
+            # Порядок точек для преобразования
             src_pts = np.array([
                 [0, 0],
                 [w - 1, 0],
@@ -166,20 +171,9 @@ class MapStitcher:
             for c in range(4):  # Смешиваем все каналы (RGB + Альфа)
                 canvas[..., c] = canvas[..., c] * (1 - mask) + warped[..., c] * mask
 
-        # Конвертируем в uint8 и удаляем альфа-канал
         result = np.clip(canvas, 0, 255).astype(np.uint8)
         result = cv2.cvtColor(result, cv2.COLOR_BGRA2BGR)
         return result
-
-
-
-    def match_histograms(self, src, ref):
-        """Выравнивание гистограмм src под ref"""
-        matched = src.copy()
-        for c in range(3):  # Применяем к каждому каналу RGB
-            # Выравниваем гистограмму канала src под ref
-            matched[:, :, c] = cv2.normalize(cv2.equalizeHist(matched[:, :, c]), None, 0, 255, cv2.NORM_MINMAX)
-        return matched
 
 
 def show_image(image):
